@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Piyush Smart Board - V10 Ultra</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <style>
+        :root { 
+            --primary: #6c5ce7;
+            --cute: #fd79a8;
+            --danger: #ff7675;
+            --dark: #2d3436;
+            --glass: rgba(255, 255, 255, 0.98);
+        }
+        * { touch-action: none; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #dfe6e9; }
+        
+        /* Toolbar */
+        #toolbar {
+            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+            background: var(--glass); padding: 8px 18px; border-radius: 15px;
+            display: flex; gap: 10px; align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 1000;
+            border: 1px solid #fff; transition: 0.3s ease;
+            flex-wrap: wrap; justify-content: center; width: max-content; max-width: 95%;
+        }
+        #toolbar.hidden { top: -100px; opacity: 0; }
+
+        .btn {
+            border: none; background: #f1f2f6; padding: 10px; border-radius: 10px;
+            cursor: pointer; font-size: 20px; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; width: 45px; height: 45px;
+        }
+        .btn:hover { background: #dfe6e9; transform: scale(1.05); }
+        .btn.active { background: var(--primary); color: white; }
+        .btn.cute-btn { background: var(--cute); color: white; }
+        
+        .divider { width: 1px; height: 30px; background: #ddd; }
+
+        /* Settings Panel */
+        #sidePanel {
+            position: fixed; right: -380px; top: 0; width: 350px; height: 100%; max-width: 100vw;
+            background: white; box-shadow: -10px 0 40px rgba(0,0,0,0.1);
+            z-index: 1100; padding: 0; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+        }
+        #sidePanel.open { right: 0; }
+        .panel-header { background: #f8fafc; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .panel-content { padding: 20px; overflow-y: auto; flex: 1; }
+
+        .section-label { font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; margin: 15px 0 8px; }
+        
+        /* Grid for Shapes/Stickers */
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .grid-item { padding: 10px; border: 1px solid #eee; border-radius: 8px; background: #fff; cursor: pointer; font-size: 18px; text-align: center; transition: 0.2s; }
+        .grid-item:hover { background: #f1f5f9; transform: scale(1.05); }
+
+        /* Brush Settings UI */
+        .brush-controls { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .control-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .control-group:last-child { margin-bottom: 0; }
+        .control-group label { font-size: 14px; font-weight: 600; color: var(--dark); }
+        .settings-color { border: none; width: 35px; height: 35px; border-radius: 5px; cursor: pointer; padding: 0; background: none; }
+        .settings-color::-webkit-color-swatch-wrapper { padding: 0; }
+        .settings-color::-webkit-color-swatch { border: 2px solid #ddd; border-radius: 5px; }
+        .settings-range { flex: 1; margin-left: 15px; accent-color: var(--primary); cursor: pointer; }
+
+        /* About Section */
+        .about-box { background: #f1f5f9; padding: 15px; border-radius: 12px; font-size: 13px; color: #475569; text-align: center; line-height: 1.6; border: 1px dashed #cbd5e1; }
+        .about-box b { color: var(--primary); }
+
+        /* Bottom Controls */
+        .bottom-controls { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 900; align-items: flex-end; }
+        .pill-btn { background: var(--dark); color: white; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); font-weight: 600; font-size: 14px; }
+        .pill-btn button { background: none; border: none; color: white; cursor: pointer; font-size: 16px; }
+        .pdf-pill { background: var(--danger); display: none; }
+
+        /* Save Buttons */
+        .action-btn { width: 100%; padding: 12px; color: white; border: none; border-radius: 8px; margin-bottom: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .action-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-save { background: var(--primary); box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3); }
+        .btn-save-all { background: #22c55e; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+
+        #showBarBtn { position: fixed; top: 10px; right: 10px; background: var(--dark); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; display: none; z-index: 1001; }
+
+        /* Mobile Responsive adjustments */
+        @media (max-width: 768px) {
+            #toolbar { top: 10px; padding: 5px 10px; gap: 5px; width: 95%; }
+            .btn { width: 38px; height: 38px; font-size: 18px; padding: 5px; }
+            .divider { height: 25px; }
+            .bottom-controls { flex-direction: column; left: 10px; bottom: 10px; align-items: flex-start; }
+            .pill-btn { padding: 8px 15px; font-size: 13px; gap: 10px; }
+            .grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Patterns */
+        .bg-grid { background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; }
+        .bg-line { background-image: linear-gradient(#e1e1e1 1px, transparent 1px); background-size: 100% 35px; }
+    </style>
+</head>
+<body>
+
+    <button id="showBarBtn" onclick="toggleToolbar(true)">Show Bar 👁️</button>
+
+    <div id="toolbar">
+        <button class="btn active" id="penBtn" onclick="setMode('pencil')" title="Pen (P)">🖋️</button>
+        <button class="btn" id="eraBtn" onclick="setMode('eraser')" title="Eraser (E)">🧽</button>
+        <button class="btn" id="selBtn" onclick="setMode('select')" title="Select (V)">🎯</button>
+        <button class="btn" onclick="clearCanvas()" title="Clear Board">🧹</button>
+        
+        <div class="divider"></div>
+        <button class="btn" onclick="addText()" title="Add Text">T</button>
+        <button class="btn cute-btn" onclick="toggleSettings('stickers')" title="Stickers">🧸</button>
+        
+        <div class="divider"></div>
+        <button class="btn" onclick="undo()" title="Undo (Ctrl+Z)">↩️</button>
+        <button class="btn" onclick="redo()" title="Redo (Ctrl+Y)">↪️</button>
+        
+        <div class="divider"></div>
+        <button class="btn" onclick="document.getElementById('fileInput').click()" title="Upload Image/PDF">📁</button>
+        <button class="btn" onclick="toggleSettings('settings')" title="Settings">⚙️</button>
+        <button class="btn" onclick="toggleToolbar(false)" title="Hide Toolbar">👁️‍🗨️</button>
+    </div>
+
+    <div class="bottom-controls">
+        <div class="pill-btn">
+            <button onclick="changeBoardPage(-1)">◀</button>
+            <span id="pageTxt">Page 1</span>
+            <button onclick="changeBoardPage(1)">▶</button>
+        </div>
+        <div id="pdfPill" class="pill-btn pdf-pill">
+            PDF: <button onclick="changePDFPage(-1)">◀</button>
+            <span id="pdfTxt">1/1</span>
+            <button onclick="changePDFPage(1)">▶</button>
+            <button onclick="closePDF()">✕</button>
+        </div>
+    </div>
+
+    <div id="sidePanel">
+        <div class="panel-header">
+            <h3 id="panelTitle" style="margin:0; color:var(--primary)">⚙️ Settings</h3>
+            <button class="btn" onclick="toggleSettings()" style="width:35px; height:35px; background: #fee2e2; color: #ef4444;">✖</button>
+        </div>
+        
+        <div class="panel-content">
+            <div id="settingsView">
+                
+                <div class="section-label">ℹ️ About Board</div>
+                <div class="about-box">
+                    <strong>Piyush Smart Board - V10 Ultra</strong><br>
+                    Developed for seamless teaching, digital drawing, and note-taking.
+                    <hr style="border: 0.5px solid #cbd5e1; margin: 8px 0;">
+                    <i>⌨️ Desktop Shortcuts:</i><br>
+                    <b>P</b>: Pen | <b>E</b>: Eraser | <b>V</b>: Select<br>
+                    <b>Ctrl+Z</b>: Undo | <b>Ctrl+Y</b>: Redo<br>
+                    <b>Del/Backspace</b>: Delete Item
+                </div>
+
+                <div class="section-label">🖌️ Pen Tools</div>
+                <div class="brush-controls">
+                    <div class="control-group">
+                        <label>Brush Color</label>
+                        <input type="color" id="penColor" class="settings-color" value="#6c5ce7" onchange="updateBrush()" title="Select Color">
+                    </div>
+                    <div class="control-group">
+                        <label>Brush Size (<span id="sizeVal">4</span>px)</label>
+                        <input type="range" id="penWidth" class="settings-range" min="1" max="50" value="4" oninput="document.getElementById('sizeVal').innerText=this.value; updateBrush()" title="Select Size">
+                    </div>
+                </div>
+
+                <div class="section-label">🎨 Canvas Background</div>
+                <select id="themeSelect" onchange="changeTheme(this.value)" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-bottom: 10px; outline:none; cursor:pointer;">
+                    <option value="white">Piyush White</option>
+                    <option value="math">Graph Grid</option>
+                    <option value="line">Notebook</option>
+                    <option value="#004d40">Dark Green Board</option>
+                </select>
+
+                <div class="section-label">🔲 Shapes Gallery</div>
+                <div class="grid">
+                    <div class="grid-item" onclick="addShape('rect')">⬜</div>
+                    <div class="grid-item" onclick="addShape('circle')">⭕</div>
+                    <div class="grid-item" onclick="addShape('tri')">▲</div>
+                    <div class="grid-item" onclick="addShape('star')">⭐</div>
+                    <div class="grid-item" onclick="addShape('heart')">❤️</div>
+                    <div class="grid-item" onclick="addShape('arrow')">➡️</div>
+                    <div class="grid-item" onclick="deleteObj()" style="color:var(--danger)">🗑️</div>
+                </div>
+
+                <div class="section-label">💾 Export & Save</div>
+                <button onclick="downloadBoard()" class="action-btn btn-save">💾 Save Current Page</button>
+                <button onclick="saveAllPages()" class="action-btn btn-save-all">📂 Save All Pages</button>
+            </div>
+
+            <div id="stickerView" style="display:none">
+                <div class="section-label">🧸 Cute Stickers</div>
+                <div class="grid">
+                    <div class="grid-item" onclick="addSticker('🧸')">🧸</div>
+                    <div class="grid-item" onclick="addSticker('🎨')">🎨</div>
+                    <div class="grid-item" onclick="addSticker('🌈')">🌈</div>
+                    <div class="grid-item" onclick="addSticker('🍦')">🍦</div>
+                    <div class="grid-item" onclick="addSticker('✨')">✨</div>
+                    <div class="grid-item" onclick="addSticker('🐱')">🐱</div>
+                    <div class="grid-item" onclick="addSticker('🍭')">🍭</div>
+                    <div class="grid-item" onclick="addSticker('🌸')">🌸</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" hidden accept="image/*,application/pdf" onchange="handleFile(event)">
+    <canvas id="c"></canvas>
+
+    <script>
+        let canvas, pdfDoc = null, currentPdfPage = 1;
+        let boardStates = {}; let currentIdx = 0;
+        let undoStack = [], redoStack = [];
+        let pdfScale = 0.8, pdfLeft = 50, pdfTop = 40; 
+
+        window.onload = () => {
+            canvas = new fabric.Canvas('c', {
+                width: window.innerWidth, height: window.innerHeight,
+                backgroundColor: 'white', isDrawingMode: true
+            });
+            updateBrush();
+            canvas.on('object:added', saveState);
+            canvas.on('object:modified', saveState);
+            
+            // Handle window resize for responsiveness
+            window.addEventListener('resize', resizeCanvas, false);
+        };
+
+        function resizeCanvas() {
+            canvas.setWidth(window.innerWidth);
+            canvas.setHeight(window.innerHeight);
+            canvas.renderAll();
+        }
+
+        // KEYBOARD SHORTCUTS INTEGRATION
+        window.addEventListener('keydown', function(e) {
+            // Prevent shortcuts if user is typing in a text box
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || (canvas.getActiveObject() && canvas.getActiveObject().isEditing)) {
+                return;
+            }
+
+            // Undo: Ctrl+Z / Cmd+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+            
+            // Redo: Ctrl+Y / Cmd+Y / Ctrl+Shift+Z
+            if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) { 
+                e.preventDefault(); redo(); 
+            }
+
+            // Tools Selection
+            if (e.key.toLowerCase() === 'p') { setMode('pencil'); }
+            if (e.key.toLowerCase() === 'e') { setMode('eraser'); }
+            if (e.key.toLowerCase() === 'v') { setMode('select'); }
+
+            // Delete object
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                deleteObj();
+            }
+        });
+
+        async function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.type === "application/pdf") {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    const typedarray = new Uint8Array(this.result);
+                    pdfDoc = await pdfjsLib.getDocument(typedarray).promise;
+                    currentPdfPage = 1;
+                    renderPDF(1, true); 
+                    document.getElementById('pdfPill').style.display = 'flex';
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (file.type.startsWith("image/")) {
+                const reader = new FileReader();
+                reader.onload = function(f) {
+                    fabric.Image.fromURL(f.target.result, function(img) {
+                        if(img.width > window.innerWidth / 1.5) {
+                            img.scaleToWidth(window.innerWidth / 1.5);
+                        }
+                        img.set({ left: window.innerWidth / 4, top: 100, selectable: true });
+                        canvas.add(img);
+                        canvas.setActiveObject(img);
+                        setMode('select');
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        }
+
+        async function renderPDF(num, autoFit = false) {
+            const oldPdf = canvas.getObjects().find(o => o.isPDF);
+            if(oldPdf) {
+                pdfScale = oldPdf.scaleX;
+                pdfLeft = oldPdf.left;
+                pdfTop = oldPdf.top;
+                canvas.remove(oldPdf);
+            }
+
+            const page = await pdfDoc.getPage(num);
+            const viewport = page.getViewport({ scale: 2.0 });
+            const tempC = document.createElement('canvas');
+            tempC.height = viewport.height; tempC.width = viewport.width;
+            await page.render({ canvasContext: tempC.getContext('2d'), viewport: viewport }).promise;
+            
+            fabric.Image.fromURL(tempC.toDataURL(), (img) => {
+                if(autoFit) {
+                    const fitScale = Math.min(canvas.width / img.width, (canvas.height - 100) / img.height) * 0.8;
+                    pdfScale = fitScale;
+                    pdfLeft = (canvas.width - img.width * fitScale) / 2;
+                    pdfTop = 40;
+                }
+
+                img.set({ 
+                    left: pdfLeft, top: pdfTop, 
+                    scaleX: pdfScale, scaleY: pdfScale,
+                    selectable: true, isPDF: true 
+                });
+                canvas.add(img).sendToBack();
+                canvas.renderAll();
+                document.getElementById('pdfTxt').innerText = `${num}/${pdfDoc.numPages}`;
+            });
+        }
+
+        function changePDFPage(dir) {
+            let n = currentPdfPage + dir;
+            if(n >= 1 && n <= pdfDoc.numPages) { currentPdfPage = n; renderPDF(n, false); }
+        }
+
+        function updateBrush() {
+            if (!canvas || !canvas.freeDrawingBrush) return;
+            canvas.freeDrawingBrush.color = document.getElementById('penColor').value;
+            canvas.freeDrawingBrush.width = parseInt(document.getElementById('penWidth').value, 10);
+        }
+
+        function setMode(mode) {
+            canvas.isDrawingMode = (mode === 'pencil' || mode === 'eraser');
+            document.querySelectorAll('#toolbar .btn').forEach(b => b.classList.remove('active'));
+            if(mode === 'pencil') document.getElementById('penBtn').classList.add('active');
+            if(mode === 'eraser') document.getElementById('eraBtn').classList.add('active');
+            if(mode === 'select') document.getElementById('selBtn').classList.add('active');
+
+            if(canvas.isDrawingMode) {
+                canvas.freeDrawingBrush.color = mode === 'eraser' ? (canvas.backgroundColor === 'white' ? '#ffffff' : canvas.backgroundColor) : document.getElementById('penColor').value;
+                canvas.freeDrawingBrush.width = mode === 'eraser' ? 50 : parseInt(document.getElementById('penWidth').value, 10);
+            }
+        }
+
+        function addText() {
+            const t = new fabric.IText('Double Click to Edit', { left: 100, top: 100, fontSize: 30, fontFamily: 'Segoe UI' });
+            canvas.add(t).setActiveObject(t); setMode('select');
+        }
+
+        function addSticker(emoji) {
+            const t = new fabric.Text(emoji, { left: 150, top: 150, fontSize: 80 });
+            canvas.add(t); setMode('select');
+        }
+
+        function addShape(type) {
+            const props = { left: 150, top: 150, fill: document.getElementById('penColor').value, width: 100, height: 100 };
+            let s;
+            if(type === 'rect') s = new fabric.Rect(props);
+            if(type === 'circle') s = new fabric.Circle({...props, radius: 50});
+            if(type === 'tri') s = new fabric.Triangle(props);
+            if(type === 'star') s = new fabric.Polygon([{x:50,y:0},{x:61,y:35},{x:98,y:35},{x:68,y:57},{x:79,y:91},{x:50,y:70},{x:21,y:91},{x:32,y:57},{x:2,y:35},{x:39,y:35}], props);
+            if(type === 'heart') s = new fabric.Path('M 272 161 C 255 137 228 126 200 126 C 158 126 125 159 125 200 C 125 250 200 320 272 384 C 344 320 419 250 419 200 C 419 159 386 126 344 126 C 316 126 289 137 272 161 Z', props);
+            if(type === 'arrow') s = new fabric.Path('M 0 50 L 50 0 L 50 30 L 100 30 L 100 70 L 50 70 L 50 100 Z', props);
+            canvas.add(s); setMode('select');
+        }
+
+        function clearCanvas() {
+            if(confirm("Are you sure you want to clear the board?")) {
+                canvas.clear();
+                changeTheme(document.getElementById('themeSelect').value);
+                undoStack = []; redoStack = [];
+            }
+        }
+
+        function saveAllPages() {
+            boardStates[currentIdx] = canvas.toJSON();
+            Object.keys(boardStates).forEach((key, i) => {
+                setTimeout(() => {
+                    const temp = new fabric.StaticCanvas();
+                    temp.setDimensions({width: canvas.width, height: canvas.height});
+                    temp.loadFromJSON(boardStates[key], () => {
+                        const a = document.createElement('a');
+                        a.download = `Piyush_Board_Page_${parseInt(key)+1}.png`;
+                        a.href = temp.toDataURL();
+                        a.click();
+                    });
+                }, i * 1000);
+            });
+        }
+
+        function changeBoardPage(dir) {
+            boardStates[currentIdx] = canvas.toJSON();
+            let n = currentIdx + dir; if(n < 0) return;
+            currentIdx = n;
+            document.getElementById('pageTxt').innerText = "Page " + (currentIdx + 1);
+            canvas.clear();
+            if(boardStates[currentIdx]) canvas.loadFromJSON(boardStates[currentIdx], () => canvas.renderAll());
+            else changeTheme(document.getElementById('themeSelect').value);
+        }
+
+        function saveState() { if(!canvas._isLoading) undoStack.push(JSON.stringify(canvas)); }
+        function undo() { if(undoStack.length > 1) { redoStack.push(undoStack.pop()); canvas.loadFromJSON(undoStack[undoStack.length-1], () => canvas.renderAll()); } }
+        function redo() { if(redoStack.length > 0) { const s = redoStack.pop(); undoStack.push(s); canvas.loadFromJSON(s, () => canvas.renderAll()); } }
+        function toggleToolbar(s) { document.getElementById('toolbar').classList.toggle('hidden', !s); document.getElementById('showBarBtn').style.display = s ? 'none' : 'block'; }
+        
+        function toggleSettings(view = 'settings') {
+            const panel = document.getElementById('sidePanel');
+            document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
+            document.getElementById('stickerView').style.display = view === 'stickers' ? 'block' : 'none';
+            document.getElementById('panelTitle').innerHTML = view === 'stickers' ? '🧸 Cute Stickers' : '⚙️ Settings';
+            panel.classList.toggle('open');
+        }
+        
+        function changeTheme(v) {
+            const c = document.querySelector('.canvas-container');
+            c.className = 'canvas-container';
+            if(v === 'math') { c.classList.add('bg-grid'); canvas.setBackgroundColor('transparent', () => canvas.renderAll()); }
+            else if(v === 'line') { c.classList.add('bg-line'); canvas.setBackgroundColor('transparent', () => canvas.renderAll()); }
+            else canvas.setBackgroundColor(v, () => canvas.renderAll());
+            setMode('pencil');
+        }
+
+        function downloadBoard() { const a = document.createElement('a'); a.download = 'Board.png'; a.href = canvas.toDataURL(); a.click(); }
+        function deleteObj() { if(canvas.getActiveObject()) { canvas.getActiveObjects().forEach(o => canvas.remove(o)); canvas.discardActiveObject(); } }
+        function closePDF() { pdfDoc = null; document.getElementById('pdfPill').style.display = 'none'; canvas.getObjects().forEach(o => { if(o.isPDF) canvas.remove(o); }); }
+    </script>
+</body>
+</html>
