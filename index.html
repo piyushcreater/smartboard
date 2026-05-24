@@ -1,442 +1,379 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Piyush Smart Board - V10 Ultra</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Piyush Smart Board V17</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --p:#7c6ef7; --p2:#a99cf9; --cute:#f472b6; --danger:#f87171;
+  --dark:#1e1b2e; --glass:rgba(255,255,255,0.95);
+  --border:rgba(200,190,255,0.4); --shadow:0 4px 24px rgba(124,110,247,0.18);
+  --font:'Nunito',system-ui,sans-serif; --tb:54px;
+}
+*{box-sizing:border-box;font-family:var(--font);margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:#eeeaff;}
 
-    <style>
-        :root { 
-            --primary: #6c5ce7;
-            --cute: #fd79a8;
-            --danger: #ff7675;
-            --dark: #2d3436;
-            --glass: rgba(255, 255, 255, 0.98);
-        }
-        * { touch-action: none; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { margin: 0; padding: 0; overflow: hidden; background: #dfe6e9; }
-        
-        /* Toolbar */
-        #toolbar {
-            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
-            background: var(--glass); padding: 8px 18px; border-radius: 15px;
-            display: flex; gap: 10px; align-items: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 1000;
-            border: 1px solid #fff; transition: 0.3s ease;
-            flex-wrap: wrap; justify-content: center; width: max-content; max-width: 95%;
-        }
-        #toolbar.hidden { top: -100px; opacity: 0; }
+/* fix fabric touch */
+canvas{touch-action:none!important;}
+.upper-canvas{touch-action:none!important;}
+.canvas-container{touch-action:none!important;}
 
-        .btn {
-            border: none; background: #f1f2f6; padding: 10px; border-radius: 10px;
-            cursor: pointer; font-size: 20px; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; width: 45px; height: 45px;
-        }
-        .btn:hover { background: #dfe6e9; transform: scale(1.05); }
-        .btn.active { background: var(--primary); color: white; }
-        .btn.cute-btn { background: var(--cute); color: white; }
-        
-        .divider { width: 1px; height: 30px; background: #ddd; }
+/* BG blobs */
+#wc{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.13;animation:drift 20s ease-in-out infinite alternate;}
+@keyframes drift{0%{transform:translate(0,0) scale(1);}100%{transform:translate(30px,20px) scale(1.1);}}
 
-        /* Settings Panel */
-        #sidePanel {
-            position: fixed; right: -380px; top: 0; width: 350px; height: 100%; max-width: 100vw;
-            background: white; box-shadow: -10px 0 40px rgba(0,0,0,0.1);
-            z-index: 1100; padding: 0; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex; flex-direction: column;
-        }
-        #sidePanel.open { right: 0; }
-        .panel-header { background: #f8fafc; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
-        .panel-content { padding: 20px; overflow-y: auto; flex: 1; }
+/* ── TOOLBAR ── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;height:var(--tb);
+  background:var(--glass);backdrop-filter:blur(24px) saturate(1.6);
+  border-bottom:1.5px solid var(--border);
+  box-shadow:0 2px 20px rgba(124,110,247,0.12);
+  display:flex;align-items:center;padding:0 10px;gap:4px;
+  z-index:200;overflow-x:auto;overflow-y:hidden;
+  transition:top .3s cubic-bezier(.4,0,.2,1),opacity .3s;
+}
+#toolbar::-webkit-scrollbar{display:none;}
+#toolbar.hidden{top:calc(-1 * var(--tb) - 4px);opacity:0;pointer-events:none;}
 
-        .section-label { font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; margin: 15px 0 8px; }
-        
-        /* Grid for Shapes/Stickers */
-        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .grid-item { padding: 10px; border: 1px solid #eee; border-radius: 8px; background: #fff; cursor: pointer; font-size: 18px; text-align: center; transition: 0.2s; }
-        .grid-item:hover { background: #f1f5f9; transform: scale(1.05); }
+.btn{
+  border:none;background:transparent;padding:0;border-radius:11px;cursor:pointer;
+  font-size:19px;width:42px;height:42px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,transform .1s;color:var(--dark);
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:hover{background:rgba(124,110,247,0.13);}
+.btn:active{transform:scale(0.9);}
+.btn.active{background:var(--p);color:#fff;box-shadow:0 3px 12px rgba(124,110,247,.45);}
+.sep{width:1px;height:28px;background:var(--border);margin:0 2px;flex-shrink:0;}
 
-        /* Brush Settings UI */
-        .brush-controls { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
-        .control-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .control-group:last-child { margin-bottom: 0; }
-        .control-group label { font-size: 14px; font-weight: 600; color: var(--dark); }
-        .settings-color { border: none; width: 35px; height: 35px; border-radius: 5px; cursor: pointer; padding: 0; background: none; }
-        .settings-color::-webkit-color-swatch-wrapper { padding: 0; }
-        .settings-color::-webkit-color-swatch { border: 2px solid #ddd; border-radius: 5px; }
-        .settings-range { flex: 1; margin-left: 15px; accent-color: var(--primary); cursor: pointer; }
+#activeDot{
+  width:26px;height:26px;border-radius:50%;background:#7c6ef7;
+  border:3px solid rgba(255,255,255,0.9);box-shadow:0 0 0 2px #7c6ef7;
+  cursor:pointer;flex-shrink:0;transition:.18s;
+  -webkit-tap-highlight-color:transparent;
+}
+#activeDot:active{transform:scale(0.9);}
 
-        /* About Section */
-        .about-box { background: #f1f5f9; padding: 15px; border-radius: 12px; font-size: 13px; color: #475569; text-align: center; line-height: 1.6; border: 1px dashed #cbd5e1; }
-        .about-box b { color: var(--primary); }
+/* quick color popup */
+#colorPop{
+  position:fixed;top:62px;left:50%;transform:translateX(-50%);
+  background:var(--glass);backdrop-filter:blur(20px);
+  border:1.5px solid var(--border);border-radius:20px;
+  padding:14px 16px;display:none;gap:8px;flex-wrap:wrap;
+  box-shadow:var(--shadow);z-index:400;max-width:300px;justify-content:center;
+}
+#colorPop.show{display:flex;}
+#colorPop .cdot{width:32px;height:32px;}
 
-        /* Bottom Controls */
-        .bottom-controls { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 10px; z-index: 900; align-items: flex-end; }
-        .pill-btn { background: var(--dark); color: white; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); font-weight: 600; font-size: 14px; }
-        .pill-btn button { background: none; border: none; color: white; cursor: pointer; font-size: 16px; }
-        .pdf-pill { background: var(--danger); display: none; }
+/* ── CANVAS AREA ── */
+#canvasWrap{
+  position:fixed;top:var(--tb);left:0;right:0;bottom:0;
+  z-index:1;overflow:hidden;
+}
+.canvas-container{position:absolute!important;top:0;left:0;z-index:1!important;}
+.bg-grid{background-image:radial-gradient(#c7c0f0 1.2px,transparent 1.2px);background-size:28px 28px;}
+.bg-line{background-image:linear-gradient(#dbd6ff 1px,transparent 1px);background-size:100% 34px;}
 
-        /* Save Buttons */
-        .action-btn { width: 100%; padding: 12px; color: white; border: none; border-radius: 8px; margin-bottom: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .action-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .btn-save { background: var(--primary); box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3); }
-        .btn-save-all { background: #22c55e; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+/* ── SIDE NAVS ── */
+.sidenav{
+  position:fixed;top:50%;transform:translateY(-50%);
+  z-index:250;display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+#lnav{left:8px;} #rnav{right:8px;}
+.navbtn{
+  background:linear-gradient(145deg,#7c6ef7,#a99cf9);
+  border:none;border-radius:18px;
+  width:50px;min-height:64px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;box-shadow:0 6px 22px rgba(124,110,247,.5),0 2px 6px rgba(0,0,0,.15);
+  transition:transform .12s,box-shadow .15s;color:#fff;
+  font-size:22px;font-weight:900;
+  -webkit-tap-highlight-color:transparent;
+}
+.navbtn:hover{transform:scale(1.1);box-shadow:0 10px 30px rgba(124,110,247,.65);}
+.navbtn:active{transform:scale(0.93);}
+.navbtn span{font-size:10px;font-weight:800;opacity:.85;}
 
-        #showBarBtn { position: fixed; top: 10px; right: 10px; background: var(--dark); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; display: none; z-index: 1001; }
+/* ── PAGE PILL ── HIDDEN */
+#pagepill{display:none!important;}
 
-        /* Mobile Responsive adjustments */
-        @media (max-width: 768px) {
-            #toolbar { top: 10px; padding: 5px 10px; gap: 5px; width: 95%; }
-            .btn { width: 38px; height: 38px; font-size: 18px; padding: 5px; }
-            .divider { height: 25px; }
-            .bottom-controls { flex-direction: column; left: 10px; bottom: 10px; align-items: flex-start; }
-            .pill-btn { padding: 8px 15px; font-size: 13px; gap: 10px; }
-            .grid { grid-template-columns: repeat(3, 1fr); }
-        }
+/* PDF pill */
+#pdfpill{
+  position:fixed;bottom:60px;left:50%;transform:translateX(-50%);
+  background:var(--danger);color:#fff;
+  padding:7px 18px;border-radius:30px;
+  display:none;align-items:center;gap:10px;
+  font-weight:700;font-size:13px;
+  box-shadow:0 4px 16px rgba(248,113,113,.4);z-index:190;
+}
+#pdfpill button{background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0 2px;}
 
-        /* Patterns */
-        .bg-grid { background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; }
-        .bg-line { background-image: linear-gradient(#e1e1e1 1px, transparent 1px); background-size: 100% 35px; }
-    </style>
+/* ── SIDE PANEL ── */
+#panel{
+  position:fixed;right:-340px;top:0;width:314px;height:100%;
+  max-width:92vw;background:rgba(255,255,255,0.99);
+  backdrop-filter:blur(28px);border-left:1.5px solid var(--border);
+  box-shadow:-12px 0 44px rgba(124,110,247,.14);
+  z-index:300;display:flex;flex-direction:column;
+  transition:right .32s cubic-bezier(.4,0,.2,1);
+}
+#panel.open{right:0;}
+.ph{
+  padding:16px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid rgba(200,190,255,.2);
+  background:linear-gradient(135deg,#f5f2ff,#fff);flex-shrink:0;
+}
+.ph h3{font-size:15px;font-weight:800;color:var(--p);}
+.pc{padding:13px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;}
+
+.tabs{display:flex;gap:4px;background:#f0eeff;padding:4px;border-radius:13px;margin-bottom:13px;}
+.tab{flex:1;padding:7px 4px;border:none;border-radius:9px;font-size:11px;font-weight:800;color:#aaa;background:transparent;cursor:pointer;transition:.15s;}
+.tab.on{background:#fff;color:var(--p);box-shadow:0 2px 8px rgba(124,110,247,.18);}
+
+.slabel{font-size:10px;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;}
+.brow{background:#f7f4ff;padding:12px;border-radius:13px;border:1px solid #ede9ff;margin-bottom:10px;}
+.crow{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.crow:last-child{margin:0;}
+.crow label{font-size:13px;font-weight:700;color:var(--dark);}
+input[type=color]{border:none;width:36px;height:36px;border-radius:9px;cursor:pointer;padding:0;background:none;}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+input[type=color]::-webkit-color-swatch{border:2px solid #ddd;border-radius:8px;}
+input[type=range]{flex:1;margin-left:10px;accent-color:var(--p);cursor:pointer;}
+
+.cpals{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;}
+.cdot{width:26px;height:26px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:.15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.cdot:hover{transform:scale(1.2);}
+.cdot.sel{border-color:#333!important;}
+
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.sitem{padding:9px;border:1px solid #ede9ff;border-radius:10px;background:#fafbff;cursor:pointer;font-size:19px;text-align:center;transition:.12s;-webkit-tap-highlight-color:transparent;}
+.sitem:hover{background:#ede9ff;transform:scale(1.08);}
+.sitem:active{transform:scale(0.93);}
+
+select{width:100%;padding:10px;border-radius:10px;border:1px solid #ede9ff;font-size:13px;font-weight:600;color:var(--dark);background:#fafbff;cursor:pointer;outline:none;margin-bottom:9px;}
+select:focus{border-color:var(--p);}
+
+.abtn{width:100%;padding:11px;color:#fff;border:none;border-radius:11px;margin-bottom:8px;cursor:pointer;font-weight:700;font-size:13px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px;-webkit-tap-highlight-color:transparent;}
+.abtn:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.abtn:active{transform:scale(.96);}
+.abtn.purple{background:linear-gradient(135deg,#7c6ef7,#a99cf9);}
+.abtn.green{background:linear-gradient(135deg,#22c55e,#10b981);}
+.abtn.red{background:linear-gradient(135deg,#f87171,#e84393);}
+.abtn.orange{background:linear-gradient(135deg,#f97316,#fb923c);}
+.abtn.blue{background:linear-gradient(135deg,#3b82f6,#0ea5e9);}
+.abtn.dark{background:linear-gradient(135deg,#334155,#1e293b);}
+
+.scard{background:#f5f2ff;border:1px solid #ede9ff;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;transition:.12s;}
+.scard:hover{background:#ede9ff;}
+.scard-t{font-size:13px;font-weight:700;color:var(--dark);}
+.scard-s{font-size:11px;color:#888;margin-top:2px;}
+.icoBtn{background:none;border:none;font-size:17px;cursor:pointer;padding:5px;border-radius:8px;transition:.12s;}
+.icoBtn:hover{background:rgba(0,0,0,.07);}
+
+.setrow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f0eeff;}
+.setrow:last-child{border:none;}
+.setname{font-size:13px;font-weight:700;color:var(--dark);}
+.setdesc{font-size:11px;color:#aaa;margin-top:2px;}
+.tog{width:44px;height:24px;background:#ddd;border-radius:12px;position:relative;cursor:pointer;border:none;transition:.28s;flex-shrink:0;}
+.tog.on{background:var(--p);}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.28s;box-shadow:0 2px 5px rgba(0,0,0,.2);}
+.tog.on::after{left:23px;}
+
+.abox{background:linear-gradient(135deg,#f5f2ff,#fff0f9);padding:13px;border-radius:12px;font-size:12px;color:#666;text-align:center;line-height:1.9;border:1px dashed #ddd8ff;}
+
+/* style grid for pen styles */
+.stylgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.stylebtn{padding:10px 6px;border:2px solid #ede9ff;border-radius:11px;background:#fafbff;cursor:pointer;font-size:12px;font-weight:800;text-align:center;transition:.14s;-webkit-tap-highlight-color:transparent;}
+.stylebtn:hover{border-color:var(--p);background:#f0eeff;}
+.stylebtn:active{transform:scale(.95);}
+.stylebtn.active{border-color:var(--p);background:var(--p);color:#fff;}
+
+/* bgrid for backgrounds */
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.bgbtn{padding:10px 6px;border:2px solid #ede9ff;border-radius:11px;cursor:pointer;font-size:12px;font-weight:800;text-align:center;transition:.14s;-webkit-tap-highlight-color:transparent;}
+.bgbtn:hover{transform:scale(1.04);}
+.bgbtn:active{transform:scale(.95);}
+
+/* Download */
+#dlover{position:fixed;inset:0;background:rgba(10,8,30,.85);backdrop-filter:blur(12px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+#dlover.show{display:flex;}
+.dlbox{background:#fff;border-radius:24px;padding:24px;max-width:660px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 40px 100px rgba(0,0,0,.35);animation:popIn .28s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(.86);opacity:0;}}
+.dlhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.dlhead h2{font-size:18px;font-weight:800;color:var(--p);}
+.thumbgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;}
+.tcard{border:2px solid #eee;border-radius:13px;overflow:hidden;cursor:pointer;transition:.18s;}
+.tcard:hover{border-color:var(--p);transform:translateY(-2px);box-shadow:0 8px 20px rgba(124,110,247,.2);}
+.tcard img{width:100%;display:block;}
+.tlabel{padding:8px 10px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;background:#fafbff;}
+.dlbtn{background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}
+
+/* Toast & hint */
+#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(22,18,46,.9);color:#fff;padding:10px 22px;border-radius:28px;font-size:13px;font-weight:600;z-index:700;opacity:0;transition:.28s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#fhint{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(124,110,247,.92);color:#fff;padding:9px 18px;border-radius:28px;font-size:13px;font-weight:700;z-index:700;opacity:0;transition:.28s;pointer-events:none;}
+#fhint.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* delete btn highlight when object selected */
+.btn.delbtn{color:var(--danger);}
+.btn.delbtn.has-sel{background:var(--danger);color:#fff;box-shadow:0 3px 12px rgba(248,113,113,.5);}
+
+/* text color popup */
+#txtColorPop{
+  position:fixed;top:62px;left:50%;transform:translateX(-50%);
+  background:var(--glass);backdrop-filter:blur(20px);
+  border:1.5px solid var(--border);border-radius:20px;
+  padding:12px 14px;display:none;gap:8px;flex-wrap:wrap;
+  box-shadow:var(--shadow);z-index:401;max-width:300px;justify-content:center;
+}
+#txtColorPop.show{display:flex;}
+#txtColorPop .cdot{width:32px;height:32px;}
+
+@media(max-width:600px){
+  .btn{width:38px;height:38px;font-size:17px;}
+  .navbtn{width:46px;min-height:58px;font-size:20px;}
+  #lnav{left:5px;} #rnav{right:5px;}
+}
+</style>
 </head>
 <body>
 
-    <button id="showBarBtn" onclick="toggleToolbar(true)">Show Bar 👁️</button>
+<!-- BG -->
+<div id="wc">
+  <div class="blob" style="width:520px;height:520px;background:#b39ddb;top:-120px;left:-80px;animation-duration:22s;"></div>
+  <div class="blob" style="width:400px;height:400px;background:#f48fb1;top:20%;right:-60px;animation-duration:17s;animation-delay:-4s;"></div>
+  <div class="blob" style="width:360px;height:360px;background:#80cbc4;bottom:-60px;left:25%;animation-duration:20s;animation-delay:-8s;"></div>
+  <div class="blob" style="width:280px;height:280px;background:#aed581;bottom:12%;left:-40px;animation-duration:24s;animation-delay:-2s;"></div>
+  <div class="blob" style="width:250px;height:250px;background:#ffcc80;top:50%;right:18%;animation-duration:19s;animation-delay:-6s;"></div>
+</div>
 
-    <div id="toolbar">
-        <button class="btn active" id="penBtn" onclick="setMode('pencil')" title="Pen (P)">🖋️</button>
-        <button class="btn" id="eraBtn" onclick="setMode('eraser')" title="Eraser (E)">🧽</button>
-        <button class="btn" id="selBtn" onclick="setMode('select')" title="Select (V)">🎯</button>
-        <button class="btn" onclick="clearCanvas()" title="Clear Board">🧹</button>
-        
-        <div class="divider"></div>
-        <button class="btn" onclick="addText()" title="Add Text">T</button>
-        <button class="btn cute-btn" onclick="toggleSettings('stickers')" title="Stickers">🧸</button>
-        
-        <div class="divider"></div>
-        <button class="btn" onclick="undo()" title="Undo (Ctrl+Z)">↩️</button>
-        <button class="btn" onclick="redo()" title="Redo (Ctrl+Y)">↪️</button>
-        
-        <div class="divider"></div>
-        <button class="btn" onclick="document.getElementById('fileInput').click()" title="Upload Image/PDF">📁</button>
-        <button class="btn" onclick="toggleSettings('settings')" title="Settings">⚙️</button>
-        <button class="btn" onclick="toggleToolbar(false)" title="Hide Toolbar">👁️‍🗨️</button>
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <button class="btn active" id="penBtn" onclick="setMode('pencil')" title="Pen (P)">🖋️</button>
+  <button class="btn" id="eraBtn" onclick="setMode('eraser')" title="Eraser (E)">🧽</button>
+  <button class="btn" id="selBtn" onclick="setMode('select')" title="Select (V)">🎯</button>
+  <div class="sep"></div>
+  <div id="activeDot" onclick="toggleColorPop()" title="Color"></div>
+  <div class="sep"></div>
+  <button class="btn" onclick="addText()" title="Text" style="font-weight:900;font-size:16px;">T</button>
+  <button class="btn" id="txtColorBtn" onclick="changeTextColor()" title="Text Color" style="font-size:15px;font-weight:900;position:relative;">
+    <span style="color:var(--p);font-size:17px;">A</span><span style="font-size:9px;position:absolute;bottom:5px;right:5px;background:var(--p);width:12px;height:4px;border-radius:2px;display:block;"></span>
+  </button>
+  <button class="btn" onclick="openPanel('stickers')" title="Stickers" style="font-size:20px;">🧸</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="undo()" title="Undo">↩️</button>
+  <button class="btn" onclick="redo()" title="Redo">↪️</button>
+  <div class="sep"></div>
+  <button class="btn delbtn" id="delBtn" onclick="delObj()" title="Delete Selected" style="font-size:19px;">🗑️</button>
+  <button class="btn" onclick="clearCanvas()" title="Clear">🧹</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="document.getElementById('fileIn').click()" title="Upload">📁</button>
+  <button class="btn" onclick="openPanel('settings')" title="Settings">⚙️</button>
+  <button class="btn" onclick="openDL()" title="Download">⬇️</button>
+</div>
+
+<!-- Color Popup -->
+<div id="colorPop"></div>
+<!-- Text Color Popup -->
+<div id="txtColorPop"></div>
+
+<!-- Canvas Wrap -->
+<div id="canvasWrap">
+  <canvas id="c"></canvas>
+</div>
+
+<!-- Left Nav (ALWAYS VISIBLE) -->
+<div class="sidenav" id="lnav">
+  <button class="navbtn" onclick="goPage(-1)" title="Previous">◀<span id="lnum"></span></button>
+</div>
+
+<!-- Right Nav (ALWAYS VISIBLE) -->
+<div class="sidenav" id="rnav">
+  <button class="navbtn" onclick="goPage(1)" title="Next">▶<span id="rnum">+</span></button>
+</div>
+
+<!-- Page Pill -->
+<div id="pagepill">📄 Page <span id="ptxt">1</span></div>
+
+<!-- PDF Pill -->
+<div id="pdfpill">
+  PDF:
+  <button onclick="changePdf(-1)">◀</button>
+  <span id="pdftxt">1/1</span>
+  <button onclick="changePdf(1)">▶</button>
+  <button onclick="closePdf()">✕</button>
+</div>
+
+<!-- Side Panel -->
+<div id="panel">
+  <div class="ph">
+    <h3 id="ptitle">⚙️ Tools</h3>
+    <button class="btn" onclick="closePanel()" style="background:#fee2e2;color:#ef4444;font-size:13px;width:36px;height:36px;">✖</button>
+  </div>
+  <div class="pc">
+    <div class="tabs">
+      <button class="tab on" onclick="switchTab('tools')">🖌 Tools</button>
+      <button class="tab" onclick="switchTab('saves')">💾 Saved</button>
+      <button class="tab" onclick="switchTab('more')">🛠 More</button>
     </div>
 
-    <div class="bottom-controls">
-        <div class="pill-btn">
-            <button onclick="changeBoardPage(-1)">◀</button>
-            <span id="pageTxt">Page 1</span>
-            <button onclick="changeBoardPage(1)">▶</button>
+    <!-- TOOLS TAB -->
+    <div id="tab-tools">
+      <div class="slabel">🎨 Pen Color & Size</div>
+      <div class="brow">
+        <div class="crow">
+          <label>Color</label>
+          <input type="color" id="penColor" value="#7c6ef7" onchange="updateBrush();syncDots();syncActiveDot();">
         </div>
-        <div id="pdfPill" class="pill-btn pdf-pill">
-            PDF: <button onclick="changePDFPage(-1)">◀</button>
-            <span id="pdfTxt">1/1</span>
-            <button onclick="changePDFPage(1)">▶</button>
-            <button onclick="closePDF()">✕</button>
+        <div class="cpals" id="cpals"></div>
+        <div class="crow" style="margin-top:10px">
+          <label>Size (<span id="sv">4</span>px)</label>
+          <input type="range" id="penW" min="1" max="60" value="4"
+            oninput="document.getElementById('sv').textContent=this.value;updateBrush()">
         </div>
+        <div class="crow">
+          <label>Opacity (<span id="ov">100</span>%)</label>
+          <input type="range" id="penO" min="10" max="100" value="100"
+            oninput="document.getElementById('ov').textContent=this.value;updateBrush()">
+        </div>
+      </div>
+      <div class="slabel">🖊️ Pen Style</div>
+      <div class="stylgrid">
+        <div class="stylebtn active" id="sty-normal" onclick="setPenStyle('normal')">✏️ Normal</div>
+        <div class="stylebtn" id="sty-marker" onclick="setPenStyle('marker')">🖍️ Marker</div>
+        <div class="stylebtn" id="sty-chalk" onclick="setPenStyle('chalk')">🎨 Chalk</div>
+        <div class="stylebtn" id="sty-thin" onclick="setPenStyle('thin')">🪶 Fine</div>
+        <div class="stylebtn" id="sty-thick" onclick="setPenStyle('thick')">🖌️ Thick</div>
+        <div class="stylebtn" id="sty-neon" onclick="setPenStyle('neon')">✨ Neon</div>
+      </div>
+      <div class="slabel">🖼 Background</div>
+      <div class="bgrid">
+        <div class="bgbtn" onclick="changeTheme('white')" style="background:#fff;border-color:#ede9ff;color:#333;">☀️ White</div>
+        <div class="bgbtn" onclick="changeTheme('math')" style="background:linear-gradient(135deg,#e8f0fe,#dce8ff);color:#444;">📐 Grid</div>
+        <div class="bgbtn" onclick="changeTheme('line')" style="background:linear-gradient(135deg,#fff9f0,#fff3e0);color:#444;">📝 Lines</div>
+        <div class="bgbtn" onclick="changeTheme('#004d40')" style="background:#004d40;color:#fff;">🟢 Green</div>
+        <div class="bgbtn" onclick="changeTheme('#1a1a2e')" style="background:#1a1a2e;color:#fff;">🌙 Dark</div>
+        <div class="bgbtn" onclick="changeTheme('#0d0d0d')" style="background:#0d0d0d;color:#fff;">⬛ Black</div>
+      </div>
+      <div class="slabel">🔲 Shapes</div>
+      <div class="sgrid">
+        <div class="sitem" onclick="addShape('rect')">⬜</div>
+        <div class="sitem" onclick="addShape('circle')">⭕</div>
+        <div class="sitem" onclick="addShape('tri')">▲</div>
+        <div class="sitem" onclick="addShape('star')">⭐</div>
+        <div class="sitem" onclick="addShape('heart')">❤️</div>
+        <div class="sitem" onclick="addShape('arrow')">➡️</div>
+        <div class="sitem" onclick="addShape('line')">╱</div>
+        <div class="sitem" onclick="delObj()" style="color:var(--danger)">🗑️</div>
+      </div>
     </div>
 
-    <div id="sidePanel">
-        <div class="panel-header">
-            <h3 id="panelTitle" style="margin:0; color:var(--primary)">⚙️ Settings</h3>
-            <button class="btn" onclick="toggleSettings()" style="width:35px; height:35px; background: #fee2e2; color: #ef4444;">✖</button>
-        </div>
-        
-        <div class="panel-content">
-            <div id="settingsView">
-                
-                <div class="section-label">ℹ️ About Board</div>
-                <div class="about-box">
-                    <strong>Piyush Smart Board - V10 Ultra</strong><br>
-                    Developed for seamless teaching, digital drawing, and note-taking.
-                    <hr style="border: 0.5px solid #cbd5e1; margin: 8px 0;">
-                    <i>⌨️ Desktop Shortcuts:</i><br>
-                    <b>P</b>: Pen | <b>E</b>: Eraser | <b>V</b>: Select<br>
-                    <b>Ctrl+Z</b>: Undo | <b>Ctrl+Y</b>: Redo<br>
-                    <b>Del/Backspace</b>: Delete Item
-                </div>
-
-                <div class="section-label">🖌️ Pen Tools</div>
-                <div class="brush-controls">
-                    <div class="control-group">
-                        <label>Brush Color</label>
-                        <input type="color" id="penColor" class="settings-color" value="#6c5ce7" onchange="updateBrush()" title="Select Color">
-                    </div>
-                    <div class="control-group">
-                        <label>Brush Size (<span id="sizeVal">4</span>px)</label>
-                        <input type="range" id="penWidth" class="settings-range" min="1" max="50" value="4" oninput="document.getElementById('sizeVal').innerText=this.value; updateBrush()" title="Select Size">
-                    </div>
-                </div>
-
-                <div class="section-label">🎨 Canvas Background</div>
-                <select id="themeSelect" onchange="changeTheme(this.value)" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-bottom: 10px; outline:none; cursor:pointer;">
-                    <option value="white">Piyush White</option>
-                    <option value="math">Graph Grid</option>
-                    <option value="line">Notebook</option>
-                    <option value="#004d40">Dark Green Board</option>
-                </select>
-
-                <div class="section-label">🔲 Shapes Gallery</div>
-                <div class="grid">
-                    <div class="grid-item" onclick="addShape('rect')">⬜</div>
-                    <div class="grid-item" onclick="addShape('circle')">⭕</div>
-                    <div class="grid-item" onclick="addShape('tri')">▲</div>
-                    <div class="grid-item" onclick="addShape('star')">⭐</div>
-                    <div class="grid-item" onclick="addShape('heart')">❤️</div>
-                    <div class="grid-item" onclick="addShape('arrow')">➡️</div>
-                    <div class="grid-item" onclick="deleteObj()" style="color:var(--danger)">🗑️</div>
-                </div>
-
-                <div class="section-label">💾 Export & Save</div>
-                <button onclick="downloadBoard()" class="action-btn btn-save">💾 Save Current Page</button>
-                <button onclick="saveAllPages()" class="action-btn btn-save-all">📂 Save All Pages</button>
-            </div>
-
-            <div id="stickerView" style="display:none">
-                <div class="section-label">🧸 Cute Stickers</div>
-                <div class="grid">
-                    <div class="grid-item" onclick="addSticker('🧸')">🧸</div>
-                    <div class="grid-item" onclick="addSticker('🎨')">🎨</div>
-                    <div class="grid-item" onclick="addSticker('🌈')">🌈</div>
-                    <div class="grid-item" onclick="addSticker('🍦')">🍦</div>
-                    <div class="grid-item" onclick="addSticker('✨')">✨</div>
-                    <div class="grid-item" onclick="addSticker('🐱')">🐱</div>
-                    <div class="grid-item" onclick="addSticker('🍭')">🍭</div>
-                    <div class="grid-item" onclick="addSticker('🌸')">🌸</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <input type="file" id="fileInput" hidden accept="image/*,application/pdf" onchange="handleFile(event)">
-    <canvas id="c"></canvas>
-
-    <script>
-        let canvas, pdfDoc = null, currentPdfPage = 1;
-        let boardStates = {}; let currentIdx = 0;
-        let undoStack = [], redoStack = [];
-        let pdfScale = 0.8, pdfLeft = 50, pdfTop = 40; 
-
-        window.onload = () => {
-            canvas = new fabric.Canvas('c', {
-                width: window.innerWidth, height: window.innerHeight,
-                backgroundColor: 'white', isDrawingMode: true
-            });
-            updateBrush();
-            canvas.on('object:added', saveState);
-            canvas.on('object:modified', saveState);
-            
-            // Handle window resize for responsiveness
-            window.addEventListener('resize', resizeCanvas, false);
-        };
-
-        function resizeCanvas() {
-            canvas.setWidth(window.innerWidth);
-            canvas.setHeight(window.innerHeight);
-            canvas.renderAll();
-        }
-
-        // KEYBOARD SHORTCUTS INTEGRATION
-        window.addEventListener('keydown', function(e) {
-            // Prevent shortcuts if user is typing in a text box
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || (canvas.getActiveObject() && canvas.getActiveObject().isEditing)) {
-                return;
-            }
-
-            // Undo: Ctrl+Z / Cmd+Z
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
-            
-            // Redo: Ctrl+Y / Cmd+Y / Ctrl+Shift+Z
-            if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) { 
-                e.preventDefault(); redo(); 
-            }
-
-            // Tools Selection
-            if (e.key.toLowerCase() === 'p') { setMode('pencil'); }
-            if (e.key.toLowerCase() === 'e') { setMode('eraser'); }
-            if (e.key.toLowerCase() === 'v') { setMode('select'); }
-
-            // Delete object
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                deleteObj();
-            }
-        });
-
-        async function handleFile(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            if (file.type === "application/pdf") {
-                const reader = new FileReader();
-                reader.onload = async function() {
-                    const typedarray = new Uint8Array(this.result);
-                    pdfDoc = await pdfjsLib.getDocument(typedarray).promise;
-                    currentPdfPage = 1;
-                    renderPDF(1, true); 
-                    document.getElementById('pdfPill').style.display = 'flex';
-                };
-                reader.readAsArrayBuffer(file);
-            } else if (file.type.startsWith("image/")) {
-                const reader = new FileReader();
-                reader.onload = function(f) {
-                    fabric.Image.fromURL(f.target.result, function(img) {
-                        if(img.width > window.innerWidth / 1.5) {
-                            img.scaleToWidth(window.innerWidth / 1.5);
-                        }
-                        img.set({ left: window.innerWidth / 4, top: 100, selectable: true });
-                        canvas.add(img);
-                        canvas.setActiveObject(img);
-                        setMode('select');
-                    });
-                };
-                reader.readAsDataURL(file);
-            }
-            e.target.value = '';
-        }
-
-        async function renderPDF(num, autoFit = false) {
-            const oldPdf = canvas.getObjects().find(o => o.isPDF);
-            if(oldPdf) {
-                pdfScale = oldPdf.scaleX;
-                pdfLeft = oldPdf.left;
-                pdfTop = oldPdf.top;
-                canvas.remove(oldPdf);
-            }
-
-            const page = await pdfDoc.getPage(num);
-            const viewport = page.getViewport({ scale: 2.0 });
-            const tempC = document.createElement('canvas');
-            tempC.height = viewport.height; tempC.width = viewport.width;
-            await page.render({ canvasContext: tempC.getContext('2d'), viewport: viewport }).promise;
-            
-            fabric.Image.fromURL(tempC.toDataURL(), (img) => {
-                if(autoFit) {
-                    const fitScale = Math.min(canvas.width / img.width, (canvas.height - 100) / img.height) * 0.8;
-                    pdfScale = fitScale;
-                    pdfLeft = (canvas.width - img.width * fitScale) / 2;
-                    pdfTop = 40;
-                }
-
-                img.set({ 
-                    left: pdfLeft, top: pdfTop, 
-                    scaleX: pdfScale, scaleY: pdfScale,
-                    selectable: true, isPDF: true 
-                });
-                canvas.add(img).sendToBack();
-                canvas.renderAll();
-                document.getElementById('pdfTxt').innerText = `${num}/${pdfDoc.numPages}`;
-            });
-        }
-
-        function changePDFPage(dir) {
-            let n = currentPdfPage + dir;
-            if(n >= 1 && n <= pdfDoc.numPages) { currentPdfPage = n; renderPDF(n, false); }
-        }
-
-        function updateBrush() {
-            if (!canvas || !canvas.freeDrawingBrush) return;
-            canvas.freeDrawingBrush.color = document.getElementById('penColor').value;
-            canvas.freeDrawingBrush.width = parseInt(document.getElementById('penWidth').value, 10);
-        }
-
-        function setMode(mode) {
-            canvas.isDrawingMode = (mode === 'pencil' || mode === 'eraser');
-            document.querySelectorAll('#toolbar .btn').forEach(b => b.classList.remove('active'));
-            if(mode === 'pencil') document.getElementById('penBtn').classList.add('active');
-            if(mode === 'eraser') document.getElementById('eraBtn').classList.add('active');
-            if(mode === 'select') document.getElementById('selBtn').classList.add('active');
-
-            if(canvas.isDrawingMode) {
-                canvas.freeDrawingBrush.color = mode === 'eraser' ? (canvas.backgroundColor === 'white' ? '#ffffff' : canvas.backgroundColor) : document.getElementById('penColor').value;
-                canvas.freeDrawingBrush.width = mode === 'eraser' ? 50 : parseInt(document.getElementById('penWidth').value, 10);
-            }
-        }
-
-        function addText() {
-            const t = new fabric.IText('Double Click to Edit', { left: 100, top: 100, fontSize: 30, fontFamily: 'Segoe UI' });
-            canvas.add(t).setActiveObject(t); setMode('select');
-        }
-
-        function addSticker(emoji) {
-            const t = new fabric.Text(emoji, { left: 150, top: 150, fontSize: 80 });
-            canvas.add(t); setMode('select');
-        }
-
-        function addShape(type) {
-            const props = { left: 150, top: 150, fill: document.getElementById('penColor').value, width: 100, height: 100 };
-            let s;
-            if(type === 'rect') s = new fabric.Rect(props);
-            if(type === 'circle') s = new fabric.Circle({...props, radius: 50});
-            if(type === 'tri') s = new fabric.Triangle(props);
-            if(type === 'star') s = new fabric.Polygon([{x:50,y:0},{x:61,y:35},{x:98,y:35},{x:68,y:57},{x:79,y:91},{x:50,y:70},{x:21,y:91},{x:32,y:57},{x:2,y:35},{x:39,y:35}], props);
-            if(type === 'heart') s = new fabric.Path('M 272 161 C 255 137 228 126 200 126 C 158 126 125 159 125 200 C 125 250 200 320 272 384 C 344 320 419 250 419 200 C 419 159 386 126 344 126 C 316 126 289 137 272 161 Z', props);
-            if(type === 'arrow') s = new fabric.Path('M 0 50 L 50 0 L 50 30 L 100 30 L 100 70 L 50 70 L 50 100 Z', props);
-            canvas.add(s); setMode('select');
-        }
-
-        function clearCanvas() {
-            if(confirm("Are you sure you want to clear the board?")) {
-                canvas.clear();
-                changeTheme(document.getElementById('themeSelect').value);
-                undoStack = []; redoStack = [];
-            }
-        }
-
-        function saveAllPages() {
-            boardStates[currentIdx] = canvas.toJSON();
-            Object.keys(boardStates).forEach((key, i) => {
-                setTimeout(() => {
-                    const temp = new fabric.StaticCanvas();
-                    temp.setDimensions({width: canvas.width, height: canvas.height});
-                    temp.loadFromJSON(boardStates[key], () => {
-                        const a = document.createElement('a');
-                        a.download = `Piyush_Board_Page_${parseInt(key)+1}.png`;
-                        a.href = temp.toDataURL();
-                        a.click();
-                    });
-                }, i * 1000);
-            });
-        }
-
-        function changeBoardPage(dir) {
-            boardStates[currentIdx] = canvas.toJSON();
-            let n = currentIdx + dir; if(n < 0) return;
-            currentIdx = n;
-            document.getElementById('pageTxt').innerText = "Page " + (currentIdx + 1);
-            canvas.clear();
-            if(boardStates[currentIdx]) canvas.loadFromJSON(boardStates[currentIdx], () => canvas.renderAll());
-            else changeTheme(document.getElementById('themeSelect').value);
-        }
-
-        function saveState() { if(!canvas._isLoading) undoStack.push(JSON.stringify(canvas)); }
-        function undo() { if(undoStack.length > 1) { redoStack.push(undoStack.pop()); canvas.loadFromJSON(undoStack[undoStack.length-1], () => canvas.renderAll()); } }
-        function redo() { if(redoStack.length > 0) { const s = redoStack.pop(); undoStack.push(s); canvas.loadFromJSON(s, () => canvas.renderAll()); } }
-        function toggleToolbar(s) { document.getElementById('toolbar').classList.toggle('hidden', !s); document.getElementById('showBarBtn').style.display = s ? 'none' : 'block'; }
-        
-        function toggleSettings(view = 'settings') {
-            const panel = document.getElementById('sidePanel');
-            document.getElementById('settingsView').style.display = view === 'settings' ? 'block' : 'none';
-            document.getElementById('stickerView').style.display = view === 'stickers' ? 'block' : 'none';
-            document.getElementById('panelTitle').innerHTML = view === 'stickers' ? '🧸 Cute Stickers' : '⚙️ Settings';
-            panel.classList.toggle('open');
-        }
-        
-        function changeTheme(v) {
-            const c = document.querySelector('.canvas-container');
-            c.className = 'canvas-container';
-            if(v === 'math') { c.classList.add('bg-grid'); canvas.setBackgroundColor('transparent', () => canvas.renderAll()); }
-            else if(v === 'line') { c.classList.add('bg-line'); canvas.setBackgroundColor('transparent', () => canvas.renderAll()); }
-            else canvas.setBackgroundColor(v, () => canvas.renderAll());
-            setMode('pencil');
-        }
-
-        function downloadBoard() { const a = document.createElement('a'); a.download = 'Board.png'; a.href = canvas.toDataURL(); a.click(); }
-        function deleteObj() { if(canvas.getActiveObject()) { canvas.getActiveObjects().forEach(o => canvas.remove(o)); canvas.discardActiveObject(); } }
-        function closePDF() { pdfDoc = null; document.getElementById('pdfPill').style.display = 'none'; canvas.getObjects().forEach(o => { if(o.isPDF) canvas.remove(o); }); }
-    </script>
-</body>
-</html>
+    <!-- STICKERS TAB -->
+    <div id="tab-stickers" style="display:none">
+      <div
